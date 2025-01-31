@@ -13,8 +13,8 @@ spec:
         app: client
     spec:
       containers:
-      - name: client
-        image: saurabhsharma08/client
+        - name: client
+          image: saurabhsharma08/ticketing-client
 ---
 apiVersion: v1
 kind: Service
@@ -24,10 +24,7 @@ spec:
   selector:
     app: client
   ports:
-  - name: client
-    protocol: TCP
-    port: 3000
-    targetPort: 3000
-    nodePort: 30002
-  type: NodePort
-
+    - name: client
+      protocol: TCP
+      port: 3000
+      targetPort: 3000

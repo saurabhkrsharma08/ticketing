@@ -1,9 +1,11 @@
-name: Deploy to AWS EKS
+name: deploy-orders
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'orders/**'
 
 jobs:
   deploy:
@@ -12,28 +14,26 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS CLI
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Install kubectl & eksctl
+      - name: Login to Amazon ECR
         run: |
-          curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.27.0/2023-08-09/bin/linux/amd64/kubectl
-          chmod +x ./kubectl
-          sudo mv ./kubectl /usr/local/bin
-          curl -sSL https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz | tar xz -C /tmp
-          sudo mv /tmp/eksctl /usr/local/bin
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REPO }}
 
-      - name: Update kubeconfig
-        run: aws eks update-kubeconfig --region us-east-1 --name ticketing
-
-      - name: Deploy to EKS
+      - name: Build and Push Docker Image
         run: |
-          kubectl apply -f k8s/deploy-orders.yaml
-          kubectl apply -f k8s/service.yaml
+          IMAGE_URI=${{ secrets.AWS_ECR_REPO }}:latest
+          cd orders
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
 
-      - name: Verify Deployment
-        run: kubectl get pods -n default
+      - name: Update Kubeconfig for EKS
+        run: aws eks update-kubeconfig --name ticketing --region us-east-1
+
+      - name: Deploy to EKS (Fargate)
+        run: kubectl apply -f k8s/orders-deployment.yaml

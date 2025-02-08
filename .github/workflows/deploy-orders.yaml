@@ -8,18 +8,32 @@ on:
       - 'orders/**'
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - run: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      - run: cd orders && docker build -t saurabhsharma08/orders .
-      - run: docker push saurabhsharma08/orders
-      - uses: digitalocean/action-doctl@v2
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS CLI
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-      - run: doctl kubernetes cluster kubeconfig save ticketing
-      - run: kubectl rollout restart deployment orders-depl
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REPO }}
+
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_URI=${{ secrets.AWS_ECR_REPO }}:latest
+          cd orders
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+
+      - name: Update Kubeconfig for EKS
+        run: aws eks update-kubeconfig --name ticketing --region us-east-1
+
+      - name: Deploy to EKS (Fargate)
+        run: kubectl apply -f k8s/orders-deployment.yaml

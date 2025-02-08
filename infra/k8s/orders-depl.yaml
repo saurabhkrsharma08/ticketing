@@ -32,15 +32,25 @@ spec:
                   name: jwt-secret
                   key: JWT_KEY
 ---
-apiVersion: v1
-kind: Service
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: orders-srv
-spec:
-  selector:
+  name: orders-depl
+  labels:
     app: orders
-  ports:
-    - name: orders
-      protocol: TCP
-      port: 3000
-      targetPort: 3000
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders
+  template:
+    metadata:
+      labels:
+        app: orders
+    spec:
+      serviceAccountName: eks-fargate-service-account
+      containers:
+        - name: orders
+          image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/orders:latest
+          ports:
+            - containerPort: 3000

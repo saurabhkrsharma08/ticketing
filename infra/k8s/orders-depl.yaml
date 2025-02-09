@@ -51,6 +51,14 @@ spec:
       serviceAccountName: eks-fargate-service-account
       containers:
         - name: orders
-          image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/orders:latest
+          image: "{{secrets.AWS_ACCOUNT_ID}}.dkr.ecr.us-east-1.amazonaws.com/orders:latest"
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
+          resources:
+          requests:
+            cpu: "256m"    # Minimum for Fargate
+            memory: "512Mi"
+          limits:
+            cpu: "512m"
+            memory: "1Gi"
